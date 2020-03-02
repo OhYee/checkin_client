@@ -1,6 +1,7 @@
 import 'package:checkin/index.dart';
 import 'package:flutter/material.dart';
 import 'utils.dart';
+import 'api.dart';
 
 class LoginPage extends StatelessWidget {
   @override
@@ -30,8 +31,21 @@ class _LoginState extends State<LoginState> {
   TextEditingController username = TextEditingController(text: "");
   TextEditingController password = TextEditingController(text: "");
 
+  void autoLogin(BuildContext context) async {
+    String token = await getValue("token");
+    print(token);
+    if (token != "" && token != null) {
+      globalToken = token;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => IndexPage()),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    autoLogin(context);
     return Container(
       margin: EdgeInsets.all(20),
       child: Column(
@@ -69,22 +83,18 @@ class _LoginState extends State<LoginState> {
                     style: TextStyle(fontSize: 16),
                   ),
                   onPressed: () async {
-                    Map res;
-                    try {
-                      res = await request(
-                        "/login",
-                        {"username": username.text, "password": password.text},
-                      );
-                    } catch (e) {
-                      makeToast(context: context, text: "登录失败");
-                      return;
-                    }
-                    if (res["token"] == "") {
+                    var res =
+                        await login(context, username.text, password.text);
+
+                    if (res.token == "") {
                       makeToast(context: context, text: "登录失败");
                     } else {
-                      setValue("token", res["token"]);
-                      Navigator.push(context,
-                          MaterialPageRoute(builder: (context) => IndexPage()));
+                      globalToken = res.token;
+                      setValue("token", res.token);
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(builder: (context) => IndexPage()),
+                      );
                     }
                   })
             ],

@@ -1,6 +1,8 @@
+import 'package:checkin/login.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'utils.dart';
+import 'api.dart';
 
 class IndexPage extends StatelessWidget {
   @override
@@ -10,7 +12,13 @@ class IndexPage extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
-      home: IndexState(),
+      home: Scaffold(
+        appBar: AppBar(
+          title: Text(title),
+        ),
+        // body:
+        body: IndexState(),
+      ),
     );
   }
 }
@@ -29,22 +37,32 @@ class _IndexState extends State<IndexState> {
   TextEditingController weight = TextEditingController(text: "");
   TextEditingController note = TextEditingController(text: "");
   int money = -1;
+  int day = 0;
+  int lottery = 0;
+  int total = 0;
 
-  void getData(DateTime _date) async {
-    date = _date;
-    Map temp = await request("/get", {"date": dateToString(_date)});
-    Data data = Data(
-      weight: temp["weight"],
-      note: temp["note"],
-      money: temp["money"],
-    );
-    money = data.money;
-    weight.text = data.weight.toString();
-    note.text = data.note;
+  void initInfo() async {
+    InfoResponse res = await info(context, globalToken);
+    setState(() {
+      day = res.day;
+      lottery = res.lottery;
+      total = res.money;
+    });
   }
 
-  _IndexState() {
-    getData(DateTime.now());
+  void setDataOfDate(DateTime _date) async {
+    GetResponse data = await getData(
+      context,
+      (_date.millisecondsSinceEpoch / 1000).round(),
+      globalToken,
+    );
+
+    setState(() {
+      date = _date;
+      money = data.money;
+      weight.text = (data.weight / 100).toString();
+      note.text = data.note;
+    });
   }
 
   void onDateClick() async {
@@ -61,9 +79,7 @@ class _IndexState extends State<IndexState> {
       },
     );
     if (selectedDate != null) {
-      setState(() {
-        getData(selectedDate);
-      });
+      setDataOfDate(selectedDate);
     }
   }
 
@@ -76,7 +92,9 @@ class _IndexState extends State<IndexState> {
             labelText: "体重",
             prefixIcon: Icon(Icons.person),
             suffix: Text("kg")),
-        inputFormatters: [WhitelistingTextInputFormatter.digitsOnly], //只允许输入数字
+        inputFormatters: [
+          WhitelistingTextInputFormatter(RegExp("[0-9.]"))
+        ], //只允许输入数字
         onChanged: (v) {},
       ),
     );
@@ -100,55 +118,106 @@ class _IndexState extends State<IndexState> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text("变胖的小仙女"),
-      ),
-      // body:
-      body: Container(
-        margin: EdgeInsets.all(20),
-        child: Column(
-          children: <Widget>[
-            Row(
+    if (date == null) {
+      setDataOfDate(DateTime.now());
+      initInfo();
+    }
+    return Container(
+      margin: EdgeInsets.all(20),
+      child: Column(
+        children: <Widget>[
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: <Widget>[
+              Text("已连续签到 $day 天", style: TextStyle(fontSize: 16)),
+              Text("有 $lottery 张抽奖券", style: TextStyle(fontSize: 16)),
+            ],
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: <Widget>[
+              Text("共有 ${total / 100} 元余额", style: TextStyle(fontSize: 16)),
+              RaisedButton(
+                child: Wrap(
+                    children: <Widget>[Icon(Icons.exit_to_app), Text("登出")]),
+                onPressed: () async {
+                  await logout(context, globalToken);
+                  globalToken = "";
+                  await delValue("token");
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(builder: (context) => LoginPage()),
+                  );
+                },
+              ),
+            ],
+          ),
+          Row(
+            children: <Widget>[
+              IconButton(
+                onPressed: onDateClick,
+                icon: Icon(Icons.date_range),
+              ),
+              Text(
+                "当前日期: ",
+                style: TextStyle(fontSize: 20),
+              ),
+              Text(
+                dateToString(date),
+                style: TextStyle(fontSize: 20),
+              ),
+              Visiable(child: Text(" (今日)"), show: isToday(date)),
+            ],
+          ),
+          renderWeight(),
+          renderNote(),
+          RaisedButton(
+            child: Text("保存当日数据"),
+            onPressed: () async {
+              SetResponse res = await setData(
+                context,
+                (date.millisecondsSinceEpoch / 1000).round(),
+                globalToken,
+                (double.parse(weight.text) * 100).round(),
+                note.text,
+              );
+              makeToast(
+                context: context,
+                text: res.success ? "提交成功" : "提交失败",
+              );
+            },
+          ),
+          RaisedButton(
+            color: Color.fromARGB(255, 255, 40, 40),
+            highlightColor: Color.fromARGB(100, 255, 255, 255),
+            textColor: Color.fromARGB(255, 255, 255, 255),
+            child: Wrap(
               children: <Widget>[
-                IconButton(
-                  onPressed: onDateClick,
-                  icon: Icon(Icons.date_range),
-                ),
-                Text(
-                  "当前日期: ",
-                  style: TextStyle(fontSize: 20),
-                ),
-                Text(
-                  dateToString(date),
-                  style: TextStyle(fontSize: 20),
-                ),
-                Visiable(child: Text(" (今日)"), show: isToday(date)),
+                Icon(Icons.directions_run),
+                Text("打卡！"),
               ],
             ),
-            renderWeight(),
-            renderNote(),
-            RaisedButton(
-              child: Text("保存当日数据"),
-              onPressed: () {},
-            ),
-            RaisedButton(
-              color: Color.fromARGB(255, 255, 40, 40),
-              highlightColor: Color.fromARGB(100, 255, 255, 255),
-              textColor: Color.fromARGB(255, 255, 255, 255),
-              child: Wrap(
-                children: <Widget>[
-                  Icon(Icons.directions_run),
-                  Text("打卡！"),
-                ],
-              ),
-              onPressed: money != -1 ? null : () {},
-            ),
-            Visiable(
-                child: Text("${dateToString(date)}打卡获得${money / 100}元"),
-                show: money != -1),
-          ],
-        ),
+            onPressed: money != -1 || !isToday(date)
+                ? null
+                : () async {
+                    var res = await checkIn(
+                        context,
+                        (date.millisecondsSinceEpoch / 1000).round(),
+                        globalToken);
+                    setState(() {
+                      day = res.day;
+                      lottery = res.lottery;
+                      money = res.money;
+
+                      total += money;
+                      day += 1;
+                    });
+                  },
+          ),
+          Visiable(
+              child: Text("${dateToString(date)}打卡获得${money / 100}元"),
+              show: money != -1),
+        ],
       ),
     );
   }

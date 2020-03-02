@@ -4,8 +4,9 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const title = "checkin!";
-const url = "192.168.1.6";
+const url = "www.oyohyee.com"; //"192.168.1.6";
 const prefix = "/api/checkin";
+var globalToken = "";
 
 class Data {
   int weight = 0;
@@ -15,16 +16,23 @@ class Data {
 }
 
 String dateToString(DateTime datetime) {
+  if (datetime == null) {
+    return "";
+  }
   return "${datetime.year}-${datetime.month}-${datetime.day}";
 }
 
 String datetimeToString(DateTime datetime) {
+  if (datetime == null) {
+    return "";
+  }
   return "${datetime.year}-${datetime.month}-${datetime.day} ${datetime.hour}:${datetime.minute}:${datetime.second}";
 }
 
 bool isToday(DateTime datetime) {
   DateTime now = DateTime.now();
-  return now.year == datetime.year &&
+  return datetime != null &&
+      now.year == datetime.year &&
       now.month == datetime.month &&
       now.day == datetime.day;
 }
@@ -40,10 +48,28 @@ class Visiable extends StatelessWidget {
   }
 }
 
-Future<dynamic> request(String api, Map<String, String> params) async {
+Future<Map<String, dynamic>> requestGet(
+    String api, Map<String, String> params) async {
   var httpClient = new HttpClient();
-  var uri = new Uri.http(url, prefix + api, params);
+  var uri = new Uri.https(url, prefix + api, params);
   var request = await httpClient.getUrl(uri);
+  var response = await request.close();
+  var responseBody = await response.transform(utf8.decoder).join();
+  Map data = json.decode(responseBody);
+  print(json.encode(params));
+  print(data);
+  return data;
+}
+
+Future<Map<String, dynamic>> requestPost(
+    String api, Map<String, dynamic> params) async {
+  print(json.encode(params));
+  var httpClient = new HttpClient();
+  var uri = new Uri.https(url, prefix + api);
+  var request = await httpClient.postUrl(uri);
+  request.headers
+      .set(HttpHeaders.contentTypeHeader, "application/json; charset=UTF-8");
+  request.write(json.encode(params));
   var response = await request.close();
   var responseBody = await response.transform(utf8.decoder).join();
   Map data = json.decode(responseBody);

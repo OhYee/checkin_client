@@ -1,0 +1,2 @@
+#!/bin/bash
+proxychains flutter build apk --release --target-platform android-arm -v
