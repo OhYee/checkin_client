@@ -40,6 +40,7 @@ class _IndexState extends State<IndexState> {
   int day = 0;
   int lottery = 0;
   int total = 0;
+  bool menstruation = false;
 
   void initInfo() async {
     InfoResponse res = await info(context, globalToken);
@@ -62,6 +63,7 @@ class _IndexState extends State<IndexState> {
       money = data.money;
       weight.text = (data.weight / 100).toString();
       note.text = data.note;
+      menstruation = data.menstruation;
     });
   }
 
@@ -83,7 +85,11 @@ class _IndexState extends State<IndexState> {
     }
   }
 
-  Widget renderWeight() {
+  bool buttonDisabled() {
+    return money != -1 || !isToday(date) || menstruation;
+  }
+
+  Widget renderWeight(BuildContext context) {
     return Container(
       child: TextField(
         controller: weight,
@@ -100,7 +106,7 @@ class _IndexState extends State<IndexState> {
     );
   }
 
-  Widget renderNote() {
+  Widget renderNote(BuildContext context) {
     return Container(
       child: TextField(
         controller: note,
@@ -113,6 +119,85 @@ class _IndexState extends State<IndexState> {
         ),
         onChanged: (v) {},
       ),
+    );
+  }
+
+  Widget renderSaveButton(BuildContext context) {
+    var callback = () async {
+      SetResponse res = await setData(
+        context,
+        (date.millisecondsSinceEpoch / 1000).round(),
+        globalToken,
+        (double.parse(weight.text) * 100).round(),
+        note.text,
+      );
+      makeToast(
+        context: context,
+        text: res.success ? "提交成功" : "提交失败",
+      );
+    };
+    return RaisedButton(
+      child: Text("保存当日数据"),
+      onPressed: callback,
+    );
+  }
+
+  Widget renderCheckInButton(BuildContext context) {
+    var callback = () async {
+      confirm(context, "提醒", "确定要打卡？", () async {
+        var res = await checkIn(
+            context, (date.millisecondsSinceEpoch / 1000).round(), globalToken);
+        setState(() {
+          day = res.day;
+          lottery = res.lottery;
+          money = res.money;
+
+          total += money;
+          day += 1;
+        });
+      });
+    };
+    return RaisedButton(
+      color: Color.fromARGB(255, 255, 40, 40),
+      highlightColor: Color.fromARGB(100, 255, 255, 255),
+      textColor: Color.fromARGB(255, 255, 255, 255),
+      child: Wrap(
+        children: <Widget>[
+          Icon(Icons.directions_run),
+          Text("打卡！"),
+        ],
+      ),
+      onPressed: buttonDisabled() ? null : callback,
+    );
+  }
+
+  Widget renderMenButton(BuildContext context) {
+    var callback = () async {
+      confirm(context, "提醒", "确定今天生理期？", () async {
+        var res = await setMenstruationData(
+          context,
+          (date.millisecondsSinceEpoch / 1000).round(),
+          globalToken,
+        );
+        if (res.success) {
+          setState(() {
+            menstruation = true;
+          });
+        }
+      });
+    };
+    return RaisedButton(
+      child: Wrap(
+        children: <Widget>[
+          Icon(
+            menstruation
+                ? Icons.sentiment_very_dissatisfied
+                : Icons.airline_seat_individual_suite,
+          ),
+          Text("生理期不打卡"),
+        ],
+      ),
+      onPressed: buttonDisabled() ? null : callback,
     );
   }
 
@@ -153,70 +238,39 @@ class _IndexState extends State<IndexState> {
             ],
           ),
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: <Widget>[
-              IconButton(
-                onPressed: onDateClick,
-                icon: Icon(Icons.date_range),
+              Row(
+                children: <Widget>[
+                  IconButton(
+                    onPressed: onDateClick,
+                    icon: Icon(Icons.date_range),
+                  ),
+                  Text("当前日期: ", style: TextStyle(fontSize: 20)),
+                  Text(dateToString(date), style: TextStyle(fontSize: 20)),
+                  Visiable(child: Text(" (今日)"), show: isToday(date)),
+                ],
               ),
-              Text(
-                "当前日期: ",
-                style: TextStyle(fontSize: 20),
+              Visiable(
+                child: Wrap(
+                  children: <Widget>[
+                    Icon(Icons.airline_seat_individual_suite),
+                    Text("卧床休息")
+                  ],
+                ),
+                show: menstruation,
               ),
-              Text(
-                dateToString(date),
-                style: TextStyle(fontSize: 20),
-              ),
-              Visiable(child: Text(" (今日)"), show: isToday(date)),
             ],
           ),
-          renderWeight(),
-          renderNote(),
-          RaisedButton(
-            child: Text("保存当日数据"),
-            onPressed: () async {
-              SetResponse res = await setData(
-                context,
-                (date.millisecondsSinceEpoch / 1000).round(),
-                globalToken,
-                (double.parse(weight.text) * 100).round(),
-                note.text,
-              );
-              makeToast(
-                context: context,
-                text: res.success ? "提交成功" : "提交失败",
-              );
-            },
-          ),
-          RaisedButton(
-            color: Color.fromARGB(255, 255, 40, 40),
-            highlightColor: Color.fromARGB(100, 255, 255, 255),
-            textColor: Color.fromARGB(255, 255, 255, 255),
-            child: Wrap(
-              children: <Widget>[
-                Icon(Icons.directions_run),
-                Text("打卡！"),
-              ],
-            ),
-            onPressed: money != -1 || !isToday(date)
-                ? null
-                : () async {
-                    var res = await checkIn(
-                        context,
-                        (date.millisecondsSinceEpoch / 1000).round(),
-                        globalToken);
-                    setState(() {
-                      day = res.day;
-                      lottery = res.lottery;
-                      money = res.money;
-
-                      total += money;
-                      day += 1;
-                    });
-                  },
-          ),
+          renderWeight(context),
+          renderNote(context),
+          renderSaveButton(context),
+          renderCheckInButton(context),
           Visiable(
-              child: Text("${dateToString(date)}打卡获得${money / 100}元"),
-              show: money != -1),
+            child: Text("${dateToString(date)}打卡获得${money / 100}元"),
+            show: money != -1,
+          ),
+          renderMenButton(context),
         ],
       ),
     );

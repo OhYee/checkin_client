@@ -4,7 +4,7 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const title = "checkin!";
-const url = "www.oyohyee.com"; //"192.168.1.6";
+const url = "192.168.1.6"; // "www.oyohyee.com"; "192.168.1.6";
 const prefix = "/api/checkin";
 var globalToken = "";
 
@@ -51,7 +51,7 @@ class Visiable extends StatelessWidget {
 Future<Map<String, dynamic>> requestGet(
     String api, Map<String, String> params) async {
   var httpClient = new HttpClient();
-  var uri = new Uri.https(url, prefix + api, params);
+  var uri = new Uri.http(url, prefix + api, params);
   var request = await httpClient.getUrl(uri);
   var response = await request.close();
   var responseBody = await response.transform(utf8.decoder).join();
@@ -65,7 +65,7 @@ Future<Map<String, dynamic>> requestPost(
     String api, Map<String, dynamic> params) async {
   print(json.encode(params));
   var httpClient = new HttpClient();
-  var uri = new Uri.https(url, prefix + api);
+  var uri = new Uri.http(url, prefix + api);
   var request = await httpClient.postUrl(uri);
   request.headers
       .set(HttpHeaders.contentTypeHeader, "application/json; charset=UTF-8");
@@ -111,4 +111,35 @@ Future<bool> setValue(String key, String value) async {
 Future<bool> delValue(String key) async {
   SharedPreferences preferences = await SharedPreferences.getInstance();
   return await preferences.remove(key);
+}
+
+void confirm(
+  BuildContext context,
+  String title,
+  String content,
+  Function callback,
+) async {
+  showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: new Text(title),
+          content: new Text(content),
+          actions: <Widget>[
+            new FlatButton(
+              onPressed: () {
+                callback();
+                Navigator.of(context).pop();
+              },
+              child: new Text("确认"),
+            ),
+            new FlatButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: new Text("取消"),
+            ),
+          ],
+        );
+      });
 }

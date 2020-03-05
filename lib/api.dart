@@ -1,5 +1,3 @@
-import 'dart:ffi';
-
 import 'package:flutter/material.dart';
 import 'utils.dart';
 
@@ -70,13 +68,16 @@ class GetResponse {
   int money;
   int weight;
   String note;
+  bool menstruation;
 
-  GetResponse({this.money: -1, this.weight: 0, this.note});
+  GetResponse(
+      {this.money: -1, this.weight: 0, this.note, this.menstruation: false});
 
   GetResponse.fromJson(Map<String, dynamic> json) {
     money = json['money'];
     weight = json['weight'];
     note = json['note'];
+    menstruation = json['menstruation'];
   }
 
   Map<String, dynamic> toJson() {
@@ -84,6 +85,7 @@ class GetResponse {
     data['money'] = this.money;
     data['weight'] = this.weight;
     data['note'] = this.note;
+    data['menstruation'] = this.menstruation;
     return data;
   }
 }
@@ -213,6 +215,41 @@ Future<CheckInResponse> checkIn(
   try {
     res = CheckInResponse.fromJson(
       await requestGet("/checkin", {
+        "date": date.toString(),
+        "token": token,
+      }),
+    );
+  } catch (e) {
+    makeToast(context: context, text: e.toString());
+  }
+  return res;
+}
+
+class MenstruationResponse {
+  bool success = false;
+
+  MenstruationResponse({this.success: false});
+
+  MenstruationResponse.fromJson(Map<String, dynamic> json) {
+    success = json['success'];
+  }
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> data = new Map<String, dynamic>();
+    data['success'] = this.success;
+    return data;
+  }
+}
+
+Future<MenstruationResponse> setMenstruationData(
+  BuildContext context,
+  int date,
+  String token,
+) async {
+  MenstruationResponse res = MenstruationResponse();
+  try {
+    res = MenstruationResponse.fromJson(
+      await requestGet("/menstruation", {
         "date": date.toString(),
         "token": token,
       }),
