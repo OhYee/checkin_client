@@ -3,8 +3,10 @@ import 'dart:io';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
+const development = false;
+
 const title = "checkin!";
-const url = "192.168.1.6"; // "www.oyohyee.com"; "192.168.1.6";
+const url = development ? "192.168.1.6" : "www.oyohyee.com";
 const prefix = "/api/checkin";
 var globalToken = "";
 
@@ -50,8 +52,10 @@ class Visiable extends StatelessWidget {
 
 Future<Map<String, dynamic>> requestGet(
     String api, Map<String, String> params) async {
-  var httpClient = new HttpClient();
-  var uri = new Uri.http(url, prefix + api, params);
+  var httpClient = HttpClient();
+  var uri = development
+      ? Uri.http(url, prefix + api, params)
+      : Uri.https(url, prefix + api, params);
   var request = await httpClient.getUrl(uri);
   var response = await request.close();
   var responseBody = await response.transform(utf8.decoder).join();
@@ -64,8 +68,9 @@ Future<Map<String, dynamic>> requestGet(
 Future<Map<String, dynamic>> requestPost(
     String api, Map<String, dynamic> params) async {
   print(json.encode(params));
-  var httpClient = new HttpClient();
-  var uri = new Uri.http(url, prefix + api);
+  var httpClient = HttpClient();
+  var uri =
+      development ? Uri.http(url, prefix + api) : Uri.https(url, prefix + api);
   var request = await httpClient.postUrl(uri);
   request.headers
       .set(HttpHeaders.contentTypeHeader, "application/json; charset=UTF-8");
